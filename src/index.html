@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+	body,
+	html {
+	  position: fixed;
+	  width: 100%;
+	}
+	button {
+		width: 49px;
+		height: 36px;
+	}
+	button.filled {
+		background-color: #ffcccc;
+	}
+</style>
+<script type="text/javascript">
+function Matrix4D (n) {
+    n = n || 1;
+    this.matrix = [ 
+        [n,0,0,0],
+        [0,n,0,0],
+        [0,0,n,0],
+        [0,0,0,n]
+    ];
+}
+
+Matrix4D.createMatrix4D = function (i, j, phi) {
+    var ma = new Matrix4D ();
+    var si = Math.sin (phi);
+    var co = Math.cos (phi);
+    ma.matrix[i][i] = co;
+    ma.matrix[i][j] = si
+    ma.matrix[j][i] = (0 - si);
+    ma.matrix[j][j] = co;
+    return ma;
+}
+
+Matrix4D.prototype.dot = function (ma) {
+    var res = new Matrix4D ();
+    for (var i = 0; i < 4; i++) {   
+        for (var j = 0; j < 4; j++) {   
+            var r = 0;
+            for (var k = 0; k < 4; k++) {   
+                r += this.matrix [i][k] * ma.matrix [k][j];
+            }
+            res.matrix[i][j] = r;               
+        }
+    }
+    return res;     
+}
+
+Matrix4D.prototype.mult = function (vec) {
+    var re = [];
+    var xc = vec [0];
+    var yc = vec [1];
+    var zc = vec [2];
+    var vc = vec [3];
+    re [0] = (this.matrix[0][0] * xc) + (this.matrix[0][1] * yc) + (this.matrix[0][2] * zc) + (this.matrix[0][3] * vc);
+    re [1] = (this.matrix[1][0] * xc) + (this.matrix[1][1] * yc) + (this.matrix[1][2] * zc) + (this.matrix[1][3] * vc);
+    re [2] = (this.matrix[2][0] * xc) + (this.matrix[2][1] * yc) + (this.matrix[2][2] * zc) + (this.matrix[2][3] * vc);
+    re [3] = (this.matrix[3][0] * xc) + (this.matrix[3][1] * yc) + (this.matrix[3][2] * zc) + (this.matrix[3][3] * vc);     
+    return re;      
+}
+
+function Cube4D () {
+    this.points = this.initialCube();
+    this.rects = this.initialRects();
+    this.lines = [0,1,3,2,0,4,5,1,9,8,10,2,6,4,12,13,5,7,3,11,9,13,15,7,6,14,10,11,15,14,12,8,0];
+}
+
+Cube4D.prototype.getPoints = function (matrix4d) {
+    var result = [];
+    for (var i = 0; i<16; i++) {    
+        result[i] = matrix4d.mult (this.points [i]);
+    }
+    return result;
+};
+
+Cube4D.prototype.initialCube = function () {
+    return [ 
+        [-1, -1, -1, -1], 
+        [-1, -1, -1,  1],
+        [-1, -1,  1, -1],
+        [-1, -1,  1,  1],
+        [-1,  1, -1, -1], 
+        [-1,  1, -1,  1],
+        [-1,  1,  1, -1],
+        [-1,  1,  1,  1],
+        [ 1, -1, -1, -1],
+        [ 1, -1, -1,  1],
+        [ 1, -1,  1, -1],
+        [ 1, -1,  1,  1],
+        [ 1,  1, -1, -1], 
+        [ 1,  1, -1,  1],
+        [ 1,  1,  1, -1],
+        [ 1,  1,  1,  1]
+    ];
+};
+
+Cube4D.prototype.initialRects = function () {
+    var r = [ 
+        [0,1,3,2,     "0,0,255"],
+        [4,5,7,6,     "0,0,255"],
+        [8,9,11,10,   "0,255,0"],
+        [12,13,15,14, "0,255,0"],
+        [0,2,6,4,     "0,0,255"],
+        [1,3,7,5,     "0,0,255"],
+        [8,10,14,12,  "0,255,0"],
+        [9,11,15,13,  "0,255,0"],
+        [0,8,12,4,    "0,0,0"],
+        [1,9,13,5,    "0,0,0"],
+        [2,10,14,6,   "0,0,0"],
+        [3,11,15,7,   "0,0,0"],
+        [0,8,10,2,    "0,0,0"],
+        [1,9,11,3,    "0,0,0"],
+        [4,12,14,6,   "0,0,0"],
+        [5,13,15,7,   "0,0,0"],
+        [0,8,9,1,     "0,0,0"],
+        [2,10,11,3,   "0,0,0"],
+        [4,12,13,5,   "0,0,0"],
+        [6,14,15,7,   "0,0,0"],
+        [0,4,5,1,     "0,0,255"],
+        [2,6,7,3,     "0,0,255"],
+        [8,12,13,9,   "0,255,0"],
+        [10,14,15,11, "0,255,0"]
+    ];  
+    return r;
+};
+
+Cube4D.fill2rects = true;
+
+function perspect2 (points) {   
+    var si = Math.sin (0.03);
+    var co = Math.cos (0.03);
+    
+    for (var i = 0; i<points.length; i++) { 
+        var x0 = points[i][0];
+        var y0 = points[i][1];
+        var z0 = points[i][2];
+        
+        var x1 = x0 * co + z0 *si;
+        var z1 = (-x0) * si + z0 *co;
+                    
+        var f0 = 0.7 + (0.2 * z0);
+        var f1 = 0.7 + (0.2 * z1);
+        points[i][0] = x0 * f0;
+        points[i][1] = y0 * f0;
+        points[i][2] = x1 * f1;
+        points[i][3] = y0 * f1;
+    }
+    return points;      
+}
+
+function drawStereoRects (points, rects, graphics) {    
+    var rectlen = rects.length;
+    for (var i = 0; i<rectlen; i++) {   
+        drawStereoRect (i, points, rects[i], graphics);
+    }
+}
+
+function drawStereoRect (nr, points, r, graphics) { 
+    var transp = 0.25;
+    var col = r[4];
+    var xfact = 100;
+    var yfact = 100;
+    var offset = 300;
+
+    graphics.beginPath();
+    graphics.moveTo (points[r[0]][0] *xfact, points[r[0]][1] *yfact);
+    graphics.lineTo (points[r[1]][0] *xfact, points[r[1]][1] *yfact);
+    graphics.lineTo (points[r[2]][0] *xfact, points[r[2]][1] *yfact);
+    graphics.lineTo (points[r[3]][0] *xfact, points[r[3]][1] *yfact);
+    graphics.lineTo (points[r[0]][0] *xfact, points[r[0]][1] *yfact);
+    if ((Cube4D.fill2rects) && (col != "0,0,0")) {
+        graphics.fillStyle = "rgba(" + col + ",0.5)";
+        graphics.fill();
+    }
+    graphics.stroke();
+    graphics.beginPath();
+    graphics.moveTo (points[r[0]][2] *xfact + offset, points[r[0]][3] *yfact);
+    graphics.lineTo (points[r[1]][2] *xfact + offset, points[r[1]][3] *yfact);
+    graphics.lineTo (points[r[2]][2] *xfact + offset, points[r[2]][3] *yfact);
+    graphics.lineTo (points[r[3]][2] *xfact + offset, points[r[3]][3] *yfact);
+    graphics.lineTo (points[r[0]][2] *xfact + offset, points[r[0]][3] *yfact);
+    if ((Cube4D.fill2rects) && (col != "0,0,0")) {
+        graphics.fillStyle = "rgba(" + col + ",0.5)";
+        graphics.fill();
+    }
+    graphics.stroke();
+}
+
+function drawStereo (ma, cube, graphics) {  
+    var points = cube.getPoints (ma);
+    points = perspect2 (points);
+    drawStereoRects (points, cube.rects, graphics);
+}	
+</script>
+<body>
+<div style="margin-left:auto;margin-right:auto;width:640px;position:relative;">
+<button id="auto_button">run</button>
+<button id="fill2rects_button" class="filled" onclick="toggleFill2rects()">fill</button>
+<canvas id="canvas" width="640" height="320"></canvas> 
+<!--
+<button onclick="turnCube(37)">1 L</button>
+<button onclick="turnCube(39)">1 R</button>
+<button onclick="turnCube(38)">2 L</button>
+<button onclick="turnCube(40)">2 R</button>
+<button onclick="turnCube(49)">3 L</button>
+<button onclick="turnCube(50)">3 R</button>
+<button onclick="turnCube(51)">4 L</button>
+<button onclick="turnCube(52)">4 R</button>
+<button onclick="turnCube(53)">5 L</button>
+<button onclick="turnCube(54)">5 R</button>
+<button onclick="turnCube(55)">6 L</button>
+<button onclick="turnCube(56)">6 R</button>
+-->
+<br>
+<br>
+<button style="width: 100%;" id="dim" onclick="toggleSwipeDimension()">drag / swipe dimension 1-2</button>
+<br>
+<br>
+<br>
+use arrow keys and numbers 1-8 to turn the cube, and space to toggle animation.
+<br>
+or drag / swipe to turn the cube.
+<br>
+<br>
+to see the three dimensional mapping of the four dimensional cube, look at the left cube with your right eye and to the right cube with your left eye, until the cubes coincide.
+<br>
+<br>
+inspired by "Perception of Form in Biological and Man-Made Systems" (Heinz Von Foerster, 1962)
+<br>
+</div>
+<script>
+
+var cube = new Cube4D();
+var transmat = new Matrix4D();
+var deltamat = new Matrix4D();
+var c = document.getElementById("canvas");
+var ctx = c.getContext("2d");
+var timer = null;
+var auto_button;
+var swipeDimension = 0;
+var xDown = null;                                                        
+var yDown = null;    
+var mousePressed = false                                                    
+
+function step_handy (d1, d2, ph) {	
+	transmat = transmat.dot (Matrix4D.createMatrix4D (d1,d2,ph));
+	c.width = c.width;
+	ctx.translate(160,160);
+	drawStereo (transmat, cube, ctx);
+}
+
+function step_handy2 (d01, d02, d03, d12, d13, d23) {	
+	transmat = transmat.dot (Matrix4D.createMatrix4D (0, 1, d01));
+	transmat = transmat.dot (Matrix4D.createMatrix4D (0, 2, d02));
+	transmat = transmat.dot (Matrix4D.createMatrix4D (0, 3, d03));
+	transmat = transmat.dot (Matrix4D.createMatrix4D (1, 2, d12));
+	transmat = transmat.dot (Matrix4D.createMatrix4D (1, 3, d13));
+	transmat = transmat.dot (Matrix4D.createMatrix4D (2, 3, d23));
+	c.width = c.width;
+	ctx.translate(160,160);
+	drawStereo (transmat, cube, ctx);
+}
+
+function run_auto () {
+	if (!timer) {
+		timer = setInterval(function() {
+			step_handy2 (0.001, 0.002, 0.003, 0.004, 0.005, 0.006);
+		}, 25);
+		var auto_button = document.getElementById('auto_button');
+		auto_button.removeEventListener("click", run_auto);
+		auto_button.addEventListener("click", stop_auto);
+		auto_button.innerHTML = "stop";
+	}
+}
+
+function stop_auto () {
+	if (timer) {
+		clearInterval (timer);
+		timer = null;
+		var auto_button = document.getElementById('auto_button');
+		auto_button.removeEventListener("click", stop_auto);
+		auto_button.addEventListener("click", run_auto);
+		auto_button.innerHTML = "run";
+	}					
+}
+
+function turnCube (keyCode) {
+	var amount = 0.05;
+	switch (keyCode) {
+		case 37: {
+			stop_auto();
+			transmat = transmat.dot (Matrix4D.createMatrix4D (0, 2, 0-amount));
+			c.width = c.width;
+			ctx.translate(160,160);
+			drawStereo (transmat, cube, ctx);			
+			break;
+		}
+		case 38: {
+			stop_auto();
+			transmat = transmat.dot (Matrix4D.createMatrix4D (1, 2, 0-amount));
+			c.width = c.width;
+			ctx.translate(160,160);
+			drawStereo (transmat, cube, ctx);			
+			break;
+		}
+		case 39: {
+			stop_auto();
+			transmat = transmat.dot (Matrix4D.createMatrix4D (0, 2, amount));
+			c.width = c.width;
+			ctx.translate(160,160);
+			drawStereo (transmat, cube, ctx);			
+			break;
+		}
+		case 40: {
+			stop_auto();
+			transmat = transmat.dot (Matrix4D.createMatrix4D (1, 2, amount));
+			c.width = c.width;
+			ctx.translate(160,160);
+			drawStereo (transmat, cube, ctx);			
+			break;
+		}
+		case 49: {
+			stop_auto();
+			transmat = transmat.dot (Matrix4D.createMatrix4D (0, 1, amount));
+			c.width = c.width;
+			ctx.translate(160,160);
+			drawStereo (transmat, cube, ctx);			
+			break;
+		}
+		case 50: {
+			stop_auto();
+			transmat = transmat.dot (Matrix4D.createMatrix4D (0, 1, 0-amount));
+			c.width = c.width;
+			ctx.translate(160,160);
+			drawStereo (transmat, cube, ctx);			
+			break;
+		}
+		case 51: {
+			stop_auto();
+			transmat = transmat.dot (Matrix4D.createMatrix4D (0, 3, amount));
+			c.width = c.width;
+			ctx.translate(160,160);
+			drawStereo (transmat, cube, ctx);			
+			break;
+		}
+		case 52: {
+			stop_auto();
+			transmat = transmat.dot (Matrix4D.createMatrix4D (0, 3, 0-amount));
+			c.width = c.width;
+			ctx.translate(160,160);
+			drawStereo (transmat, cube, ctx);			
+			break;
+		}
+		case 53: {
+			stop_auto();
+			transmat = transmat.dot (Matrix4D.createMatrix4D (1, 3, amount));
+			c.width = c.width;
+			ctx.translate(160,160);
+			drawStereo (transmat, cube, ctx);			
+			break;
+		}
+		case 54: {
+			stop_auto();
+			transmat = transmat.dot (Matrix4D.createMatrix4D (1, 3, 0-amount));
+			c.width = c.width;
+			ctx.translate(160,160);
+			drawStereo (transmat, cube, ctx);			
+			break;
+		}
+		case 55: {
+			stop_auto();
+			transmat = transmat.dot (Matrix4D.createMatrix4D (2, 3, amount));
+			c.width = c.width;
+			ctx.translate(160,160);
+			drawStereo (transmat, cube, ctx);			
+			break;
+		}
+		case 56: {
+			stop_auto();
+			transmat = transmat.dot (Matrix4D.createMatrix4D (2, 3, 0-amount));
+			c.width = c.width;
+			ctx.translate(160,160);
+			drawStereo (transmat, cube, ctx);			
+			break;
+		}
+		case 32: {
+			if (timer) {
+				stop_auto();
+			} else {
+				run_auto();
+			}
+			break;
+		}
+
+	}
+	return true;
+}
+
+
+function handleKeydown (e) {
+	var amount = 0.05;
+	turnCube(e.keyCode);
+	return true;
+}
+
+function handleTouchStart(evt) {                                         
+    xDown = evt.touches[0].clientX;                                      
+    yDown = evt.touches[0].clientY;                                      
+};                                                
+
+function handleTouchMove(evt) {
+    if ( ! xDown || ! yDown ) {
+        return;
+    }
+
+    var xUp = evt.touches[0].clientX;                                    
+    var yUp = evt.touches[0].clientY;
+
+    var xDiff = xDown - xUp;
+    var yDiff = yDown - yUp;
+
+    if ( Math.abs( xDiff ) > Math.abs( yDiff ) ) {/*most significant*/
+        if ( xDiff > 0 ) {
+            /* left swipe */ 
+            switch (swipeDimension) {
+            	case 0:
+            		turnCube(37);
+            		break;
+            	case 1:
+            		turnCube(49);
+            		break;
+            	case 2:
+            		turnCube(53);
+            		break;
+            }
+        } else {
+            /* right swipe */
+            switch (swipeDimension) {
+            	case 0:
+            		turnCube(39);
+            		break;
+            	case 1:
+            		turnCube(50);
+            		break;
+            	case 2:
+            		turnCube(54);
+            		break;
+            }
+        }                       
+    } else {
+        if ( yDiff > 0 ) {
+            /* up swipe */ 
+            switch (swipeDimension) {
+            	case 0:
+            		turnCube(38);
+            		break;
+            	case 1:
+            		turnCube(51);
+            		break;
+            	case 2:
+            		turnCube(55);
+            		break;
+            }
+        } else { 
+            /* down swipe */
+            switch (swipeDimension) {
+            	case 0:
+            		turnCube(40);
+            		break;
+            	case 1:
+            		turnCube(52);
+            		break;
+            	case 2:
+            		turnCube(56);
+            		break;
+            }
+        }                                                                 
+    }
+    /* reset values */
+    xDown = xUp;
+    yDown = yUp;                                             
+};
+
+function handleMouseStart(evt) {                                         
+	mousePressed = true;
+    xDown = evt.clientX;                                      
+    yDown = evt.clientY;                                      
+};                                                
+
+function handleMouseUp(evt) {                                         
+	mousePressed = false;
+};                                                
+
+function handleMouseMove(evt) {
+    if ( ! mousePressed ) {
+        return;
+    }
+
+    var xUp = evt.clientX;                                    
+    var yUp = evt.clientY;
+
+    var xDiff = xDown - xUp;
+    var yDiff = yDown - yUp;
+
+    if ( Math.abs( xDiff ) > Math.abs( yDiff ) ) {/*most significant*/
+        if ( xDiff > 0 ) {
+            /* left swipe */ 
+            switch (swipeDimension) {
+            	case 0:
+            		turnCube(37);
+            		break;
+            	case 1:
+            		turnCube(49);
+            		break;
+            	case 2:
+            		turnCube(53);
+            		break;
+            }
+        } else {
+            /* right swipe */
+            switch (swipeDimension) {
+            	case 0:
+            		turnCube(39);
+            		break;
+            	case 1:
+            		turnCube(50);
+            		break;
+            	case 2:
+            		turnCube(54);
+            		break;
+            }
+        }                       
+    } else {
+        if ( yDiff > 0 ) {
+            /* up swipe */ 
+            switch (swipeDimension) {
+            	case 0:
+            		turnCube(38);
+            		break;
+            	case 1:
+            		turnCube(51);
+            		break;
+            	case 2:
+            		turnCube(55);
+            		break;
+            }
+        } else { 
+            /* down swipe */
+            switch (swipeDimension) {
+            	case 0:
+            		turnCube(40);
+            		break;
+            	case 1:
+            		turnCube(52);
+            		break;
+            	case 2:
+            		turnCube(56);
+            		break;
+            }
+        }                                                                 
+    }
+    /* reset values */
+    xDown = xUp;
+    yDown = yUp;                                             
+};
+
+function toggleSwipeDimension () {
+	swipeDimension = (swipeDimension + 1) % 3;
+	var swipeDimensionButton = document.querySelector("#dim");
+	switch (swipeDimension) {
+    	case 0:
+    		swipeDimensionButton.innerHTML = "drag / swipe dimension 1-2"
+    		break;
+    	case 1:
+    		swipeDimensionButton.innerHTML = "drag / swipe dimension 3-4"
+    		break;
+    	case 2:
+    		swipeDimensionButton.innerHTML = "drag / swipe dimension 5-6"
+    		break;
+
+	}
+}
+
+function toggleFill2rects () {
+    Cube4D.fill2rects = !Cube4D.fill2rects;
+	c.width = c.width;
+	ctx.translate(160,160);
+	drawStereo (transmat, cube, ctx);		
+	var button = document.querySelector("#fill2rects_button");
+	button.className = Cube4D.fill2rects ? "filled" : "";
+}
+
+auto_button = document.getElementById('auto_button');
+auto_button.addEventListener("click", run_auto);
+document.addEventListener("keydown", handleKeydown);
+document.addEventListener('touchstart', handleTouchStart, false);        
+document.addEventListener('touchmove', handleTouchMove, false);
+document.addEventListener('mousedown', handleMouseStart, false);        
+document.addEventListener('mousemove', handleMouseMove, false);
+document.addEventListener('mouseup', handleMouseUp, false);
+
+ctx.translate(160,160);
+drawStereo (transmat, cube, ctx);
+
+</script>
